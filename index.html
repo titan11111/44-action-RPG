@@ -1,403 +1,940 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-<title>ARPG（剣・爆弾・敵SVG・モバイル対応）</title>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover, user-scalable=no" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="theme-color" content="#0b0c10" />
+<title>ARPG 統合版（剣＆BGM対応）</title>
 <style>
-:root { color-scheme: dark; --fg:#ddd; --bg:#000; --panel:#1b1b1b; --line:#444; }
-*{box-sizing:border-box}
-html,body{margin:0;height:100%;background:var(--bg);color:var(--fg);font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
-#wrap{display:flex;flex-direction:column;align-items:center;gap:8px;padding:10px 10px 120px}
-canvas#game{background:var(--panel);border:1px solid var(--line);image-rendering:pixelated;width:min(100vw,880px);height:auto;max-height:calc(100vh - 260px);border-radius:8px}
-.ui{font-size:14px;width:100%;max-width:900px}
-.row{display:flex;flex-wrap:wrap;gap:12px;align-items:center}
-kbd{border:1px solid #666;border-bottom-width:2px;border-radius:4px;padding:0 4px;background:#151515;color:#ccc;font-weight:600}
+  /* ===== ルート・テーマ ===== */
+  :root {
+    --bg: #0b0c10;
+    --panel: rgba(255,255,255,0.06);
+    --panel-strong: rgba(255,255,255,0.12);
+    --outline: rgba(255,255,255,0.24);
+    --text: #eef2f6;
+    --muted: #aab2bf;
+    --accent: #8bd3ff;
+    --danger: #ff6b6b;
+    --gold: #ffd56c;
 
-/* タッチ操作 */
-.touch{
-  position:fixed;left:0;right:0;bottom:0;padding:10px 14px calc(10px + env(safe-area-inset-bottom));
-  display:flex;justify-content:space-between;align-items:flex-end;gap:12px;
-  background:linear-gradient(180deg,rgba(0,0,0,0) 0%,rgba(0,0,0,.55) 40%,rgba(0,0,0,.7) 100%);z-index:10;user-select:none
-}
-.btn{appearance:none;border:1px solid #3a475a;background:#1f2733;color:#fff;border-radius:14px;padding:0 14px;height:64px;min-width:64px;font-size:16px;font-weight:700;box-shadow:0 2px 0 #000 inset,0 2px 8px rgba(0,0,0,.35);touch-action:manipulation}
-.btn:active{background:#2a3650;transform:translateY(1px)}
-.dpad{display:flex;flex-direction:column;gap:10px}
-.dpad .row-mid{display:flex;gap:10px;justify-content:center}
-.btn-dir{width:72px;height:72px;font-size:20px}
-.actions{display:flex;flex-direction:column;gap:10px;align-items:flex-end}
-.row-actions{display:flex;gap:10px}
-.btn-act{min-width:92px}
-.items{display:flex;gap:8px}
-.btn-item{min-width:72px;opacity:.85}
-.btn-item.is-active{outline:2px solid #7aa0ff;opacity:1}
-.row-etc{display:flex;gap:8px}
-.btn-etc{min-width:56px}
+    --safe-top: env(safe-area-inset-top);
+    --safe-right: env(safe-area-inset-right);
+    --safe-bottom: env(safe-area-inset-bottom);
+    --safe-left: env(safe-area-inset-left);
 
-/* 小さな端末で縮小 */
-@media (max-width:360px){
-  .btn{height:56px;min-width:56px;font-size:15px}
-  .btn-dir{width:64px;height:64px}
-  canvas#game{width:100vw}
-}
-/* PCではタッチUI非表示 */
-@media (min-width:900px){ .touch{display:none} }
+    --btn-size: 64px;      /* 設定で変更 */
+    --font-scale: 1;       /* 設定で変更 */
+  }
+  /* 色覚サポート用テーマ（デューテラン/プロタン系で赤緑依存を下げる） */
+  .theme-alt {
+    --accent: #7bd8bf; /* 青緑寄り */
+    --danger: #ff9f6b; /* 橙寄り */
+    --gold: #ffde8a;  
+  }
+
+  /* ===== ベース ===== */
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, "Noto Sans JP", Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+    color: var(--text);
+    background: radial-gradient(1200px 800px at 50% 10%, #141720, #0b0c10 60%);
+    overflow: hidden; /* スクロール抑止 */
+    -webkit-user-select: none; user-select: none;
+    touch-action: none; /* ズーム/スクロール誤爆防止 */
+  }
+
+  /* ルートラッパ（16:9キャンバスを中央配置） */
+  #root {
+    position: fixed; inset: 0;
+    padding: var(--safe-top) var(--safe-right) var(--safe-bottom) var(--safe-left);
+    display: grid; place-items: center;
+  }
+
+  .stage {
+    position: relative;
+    width: min(100vw, 100vh * 16 / 9);
+    height: calc(min(100vw, 100vh * 16 / 9) / 16 * 9);
+    border-radius: 16px;
+    background: linear-gradient(180deg, rgba(255,255,255,0.04), rgba(0,0,0,0.3));
+    box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+    border: 1px solid rgba(255,255,255,0.08);
+    overflow: hidden;
+  }
+
+  /* ゲームキャンバス：内部解像度320x180をCSSでスケール。ピクセル感保持 */
+  #game {
+    display: block;
+    width: 100%;
+    height: 100%;
+    image-rendering: pixelated;
+    background: #151821;
+  }
+
+  /* ===== HUD ===== */
+  .hud { position:absolute; inset:0; pointer-events:none; font-size: calc(12px * var(--font-scale)); }
+
+  .hud-top { position:absolute; top: 8px; left:8px; right:8px; display:flex; align-items:center; justify-content:space-between; gap:8px; }
+
+  .hearts { display:flex; gap:4px; }
+  .heart { width:24px; height:24px; border-radius:4px; background:
+    radial-gradient(circle at 30% 30%, #ff95ad, #ff4364 60%, #a8122f 100%);
+    border: 1px solid rgba(0,0,0,0.45);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+  }
+  .heart.empty { filter: grayscale(1) brightness(0.6); opacity: 0.5; }
+
+  .counter { pointer-events:auto; display:flex; align-items:center; gap:8px; background: var(--panel); border:1px solid var(--outline); padding:6px 10px; border-radius: 999px; }
+  .coin { width:18px; height:18px; border-radius:50%; background: radial-gradient(circle at 35% 35%, #fff7bf, var(--gold)); border:1px solid rgba(0,0,0,0.4); box-shadow: inset 0 0 2px rgba(0,0,0,0.4); }
+
+  .btn-ghost { pointer-events:auto; background: var(--panel); border:1px solid var(--outline); color: var(--text); padding:8px 10px; border-radius:10px; font-weight:700; }
+  .btn-ghost:active { transform: scale(0.96); }
+
+  .hint { position:absolute; left:50%; transform: translateX(-50%); bottom: 68px; background: var(--panel); border:1px solid var(--outline); padding:6px 10px; border-radius:8px; opacity:0; transition: opacity .15s linear; }
+  .hint.show { opacity: 1; }
+
+  .toast { position:absolute; right: 10px; top: 48px; background: var(--panel); border: 1px solid var(--outline); padding: 6px 10px; border-radius: 8px; opacity:0; transform: translateY(-8px); transition: all .15s; }
+  .toast.show { opacity:1; transform: translateY(0); }
+
+  /* ===== 仮想コントローラ ===== */
+  .virtual { position:absolute; inset:0; pointer-events:none; }
+  .stick { position:absolute; left: 10px; bottom: 10px; width: 160px; height: 160px; pointer-events:auto; }
+  .stick .base { position:absolute; inset: 0; border-radius:50%; background: var(--panel); border: 1px solid var(--outline); }
+  .stick .knob { --k: calc(var(--btn-size) * 0.75); position:absolute; left: 50%; top: 50%; width: var(--k); height: var(--k); transform: translate(-50%,-50%); border-radius: 50%; background: var(--panel-strong); border: 1px solid var(--outline); box-shadow: 0 2px 6px rgba(0,0,0,0.35); }
+
+  .buttons { position:absolute; right: 10px; bottom: 10px; display:grid; grid-template-areas: ". x" "b a"; gap: 12px; pointer-events:auto; }
+  .btn { width: var(--btn-size); height: var(--btn-size); border-radius: 50%; background: var(--panel-strong); border:1px solid var(--outline); display:grid; place-items:center; font-weight: 800; box-shadow: 0 4px 12px rgba(0,0,0,0.35); }
+  .btn:active { transform: scale(0.92); }
+  .btn.a { grid-area: a; }
+  .btn.b { grid-area: b; }
+  .btn.x { grid-area: x; }
+
+  /* 片手モード（右利き）: 右下に集約。左利きは左右反転 */
+  .one-hand .stick { right: 10px; left: auto; width: 120px; height: 120px; opacity: .9; }
+  .one-hand .buttons { right: 10px; bottom: calc(10px + 120px + 8px); grid-template-areas: "x" "b" "a"; }
+  .lefty .stick { left: 10px; right: auto; }
+  .lefty .buttons { left: 10px; right: auto; }
+
+  /* Gamepad接続時は仮想UIを半透明化（自動縮退） */
+  .gamepad .virtual { opacity: .25; }
+
+  /* ===== ダイアログ（<dialog>） ===== */
+  dialog { border: none; padding: 0; background: transparent; }
+  .sheet { width: min(92vw, 480px); background: rgba(18,20,28,0.9); backdrop-filter: blur(8px); border: 1px solid var(--outline); color: var(--text); border-radius: 16px; overflow: hidden; }
+  .sheet header { padding: 14px 16px; font-weight: 800; border-bottom: 1px solid var(--outline); }
+  .sheet .content { padding: 12px 16px; }
+  .sheet .row { display:flex; align-items:center; justify-content:space-between; gap: 12px; padding: 8px 0; }
+  .sheet .row + .row { border-top: 1px dashed rgba(255,255,255,0.1); }
+  .sheet .actions { padding: 12px 16px; display:flex; gap: 10px; justify-content:flex-end; border-top: 1px solid var(--outline); }
+  .seg { display:inline-flex; align-items:center; background: var(--panel); border:1px solid var(--outline); border-radius: 999px; padding: 2px; }
+  .seg button { all:unset; padding: 6px 10px; border-radius: 999px; cursor: pointer; }
+  .seg button.active { background: var(--accent); color: #0b1020; font-weight: 800; }
+  .slider { width: 160px; }
+  .des { color: var(--muted); font-size: 12px; }
+  .kbd { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; background: rgba(255,255,255,0.08); border:1px solid var(--outline); padding: 0 6px; border-radius: 6px; }
+
+  /* ミニオーバーレイの矢印誘導 */
+  .arrow { position:absolute; width: 24px; height:24px; left: 50%; top: 50%; transform: translate(-50%,-50%); background: radial-gradient(circle at 30% 30%, #fff, var(--accent)); border-radius: 50% 50% 50% 0; transform-origin: 50% 50%; }
+
+  /* テキストサイズ */
+  .hud, .btn, .btn-ghost, .hint, .toast { font-size: calc(14px * var(--font-scale)); }
+
+  @media (min-width: 1024px) {
+    /* PCでは仮想ボタンを弱める */
+    .virtual { opacity: .45; }
+  }
 </style>
 </head>
 <body>
-<div id="wrap">
-  <canvas id="game" width="640" height="384" aria-label="ゲーム画面"></canvas>
-  <div class="ui">
-    <div class="row">
-      移動 <kbd>↑↓←→</kbd>／剣 <kbd>Space</kbd>／使用（爆弾）<kbd>Z</kbd>／再開 <kbd>R</kbd>
-    </div>
-    <div class="row">
-      スライム＝接近、コウモリ＝速い、アーチャー＝直線射撃。倒れたらRで再開。
-    </div>
-    <div id="hud"></div>
-  </div>
-</div>
+  <div id="root">
+    <div class="stage" id="stage">
+      <canvas id="game" width="320" height="180" aria-label="ゲーム画面"></canvas>
 
-<!-- モバイル用タッチ操作 -->
-<div class="touch" aria-label="タッチ操作">
-  <div class="dpad" aria-label="方向キー">
-    <button id="btn-up" class="btn btn-dir" aria-label="上">▲</button>
-    <div class="row-mid">
-      <button id="btn-left" class="btn btn-dir" aria-label="左">◀</button>
-      <button id="btn-right" class="btn btn-dir" aria-label="右">▶</button>
-    </div>
-    <button id="btn-down" class="btn btn-dir" aria-label="下">▼</button>
-  </div>
+      <!-- HUD -->
+      <div class="hud" aria-hidden="false">
+        <div class="hud-top">
+          <div class="hearts" id="hearts"></div>
+          <div style="display:flex; align-items:center; gap:8px;">
+            <div class="counter" title="所持金">
+              <div class="coin"></div>
+              <span id="coins">0</span>
+            </div>
+            <button class="btn-ghost" id="btnPause" aria-label="ポーズ/設定">ポーズ</button>
+          </div>
+        </div>
+        <div class="hint" id="hint">B：アクション</div>
+        <div class="toast" id="toast">Gamepad 接続</div>
+      </div>
 
-  <div class="actions" aria-label="アクション">
-    <div class="row-actions">
-      <button id="btn-attack" class="btn btn-act" aria-label="攻撃">攻撃</button>
-      <button id="btn-use" class="btn btn-act" aria-label="使用">使用</button>
-    </div>
-    <div class="items" role="group" aria-label="アイテム">
-      <button id="btn-bomb" class="btn btn-item is-active">爆弾</button>
-    </div>
-    <div class="row-etc">
-      <button id="btn-reset" class="btn btn-etc" title="リセット(R)">R</button>
+      <!-- 仮想コントローラ -->
+      <div class="virtual" id="virtual">
+        <div class="stick" id="stick">
+          <div class="base"></div>
+          <div class="knob" id="stickKnob"></div>
+        </div>
+        <div class="buttons">
+          <button class="btn a" id="btnA" aria-label="A こうげき">A</button>
+          <button class="btn b" id="btnB" aria-label="B アクション">B</button>
+          <button class="btn x" id="btnX" aria-label="X サブ">X</button>
+        </div>
+      </div>
+
+      <!-- チュートリアル -->
+      <dialog id="tutorial">
+        <div class="sheet">
+          <header>チュートリアル</header>
+          <div class="content" id="tutContent">
+            <p>まずは動いてみてください。<span class="des">（スティック／矢印キー／左スティック）</span></p>
+          </div>
+          <div class="actions">
+            <button class="btn-ghost" id="tutSkip">スキップ</button>
+            <button class="btn-ghost" id="tutNext">次へ</button>
+          </div>
+        </div>
+      </dialog>
+
+      <!-- ポーズ＆設定 -->
+      <dialog id="pause">
+        <div class="sheet">
+          <header>設定</header>
+          <div class="content">
+            <div class="row">
+              <div>
+                <div>利き手</div>
+                <div class="des">仮想ボタンの左右配置</div>
+              </div>
+              <div class="seg" role="tablist" aria-label="利き手">
+                <button id="rightHand" class="active" aria-selected="true">右</button>
+                <button id="leftHand">左</button>
+              </div>
+            </div>
+
+            <div class="row">
+              <div>
+                <div>片手モード</div>
+                <div class="des">主要ボタンを片側に集約</div>
+              </div>
+              <div class="seg">
+                <button id="oneHandOn">ON</button>
+                <button id="oneHandOff" class="active">OFF</button>
+              </div>
+            </div>
+
+            <div class="row">
+              <div>
+                <div>ボタンサイズ</div>
+                <div class="des">44〜80px</div>
+              </div>
+              <input type="range" min="44" max="80" value="64" id="btnSize" class="slider" />
+            </div>
+
+            <div class="row">
+              <div>
+                <div>色覚サポート</div>
+                <div class="des">赤緑依存を下げた配色</div>
+              </div>
+              <div class="seg">
+                <button id="themeDefault" class="active">標準</button>
+                <button id="themeAlt">配慮</button>
+              </div>
+            </div>
+
+            <div class="row">
+              <div>
+                <div>文字サイズ</div>
+                <div class="des">S / M / L</div>
+              </div>
+              <div class="seg">
+                <button data-font="0.9">S</button>
+                <button data-font="1" class="active">M</button>
+                <button data-font="1.2">L</button>
+              </div>
+            </div>
+
+            <!-- ▼ 追加：BGM 設定 -->
+            <div class="row">
+              <div>
+                <div>BGM</div>
+                <div class="des">内蔵WebAudioでループ再生</div>
+              </div>
+              <div class="seg">
+                <button id="bgmOn" class="active">ON</button>
+                <button id="bgmOff">OFF</button>
+              </div>
+            </div>
+            <div class="row">
+              <div>
+                <div>BGM 音量</div>
+                <div class="des">0〜100%</div>
+              </div>
+              <input type="range" min="0" max="1" step="0.01" value="0.35" id="bgmVol" class="slider" />
+            </div>
+            <!-- ▲ 追加ここまで -->
+
+            <div class="row">
+              <div>
+                <div>操作の説明</div>
+                <div class="des">A=<span class="kbd">攻撃</span> / B=<span class="kbd">アクション</span> / X=<span class="kbd">サブ</span></div>
+              </div>
+            </div>
+          </div>
+          <div class="actions">
+            <button class="btn-ghost" id="btnReset">設定リセット</button>
+            <button class="btn-ghost" id="btnClose">閉じる</button>
+          </div>
+        </div>
+      </dialog>
+
     </div>
   </div>
-</div>
 
 <script>
 (() => {
-  // ===== 基本 =====
+  /* ============================================
+     最低限のARPGロジック + 入力統合 + UI
+     単一HTML内で完結 / iOS考慮 / Gamepad対応
+     ＋ 剣の可視化＆効果音、BGM（WebAudio）
+     ============================================ */
+
+  // ------------------------------
+  // ユーティリティ
+  // ------------------------------
+  const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+  const lerp = (a, b, t) => a + (b - a) * t;
+  const dist2 = (x1,y1,x2,y2) => { const dx = x2-x1, dy = y2-y1; return dx*dx+dy*dy; };
+  const now = () => performance.now();
+
+  // 保存
+  const STORAGE_KEY = 'settings:v1';
+  const loadSettings = () => {
+    try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || {}; } catch { return {}; }
+  };
+  const saveSettings = (s) => localStorage.setItem(STORAGE_KEY, JSON.stringify(s));
+
+  // ------------------------------
+  // キャンバス / コンテキスト
+  // ------------------------------
   const canvas = document.getElementById('game');
   const ctx = canvas.getContext('2d');
-  ctx.imageSmoothingEnabled = false;
-  const HUD = document.getElementById('hud');
+  const W = canvas.width;   // 320
+  const H = canvas.height;  // 180
 
-  const TILE=32, COLS=20, ROWS=12;
+  // ------------------------------
+  // サウンド（WebAudio）
+  // ------------------------------
+  const Sound = (() => {
+    const ac = new (window.AudioContext || window.webkitAudioContext)();
+    let unlocked = false;
+    const master = ac.createGain();
+    master.gain.value = 1;
+    master.connect(ac.destination);
 
-  // --- マップ（壁だけの簡易ダンジョン）
-  const T={ FLOOR:0, WALL:1 };
-  const map = Array.from({length:ROWS},(_,y)=>
-    Array.from({length:COLS},(_,x)=> (y===0||y===ROWS-1||x===0||x===COLS-1)?T.WALL:T.FLOOR)
-  );
-  for(let x=4;x<16;x++) map[5][x]=T.WALL;
-  for(let y=2;y<10;y++) map[y][12]=T.WALL;
+    const unlock = () => { if (ac.state === 'suspended') ac.resume(); unlocked = true; };
+    const beep = (f=440, t=0.06, type='square', g=0.04) => {
+      if (!unlocked) return; // 初回タップまで無音
+      const o = ac.createOscillator();
+      const v = ac.createGain();
+      o.type = type; o.frequency.value = f;
+      v.gain.value = g; o.connect(v); v.connect(master);
+      const t0 = ac.currentTime;
+      o.start(t0); o.stop(t0 + t);
+    };
 
-  const inB=(x,y)=> x>=0&&y>=0&&x<COLS&&y<ROWS;
-  const solid=(x,y)=> !inB(x,y) || map[y][x]===T.WALL;
-  const passable=(x,y)=> inB(x,y) && map[y][x]!==T.WALL;
+    // 追加：ワンショット再生／BGM
+    const oneShot = (buffer, gain=0.6, rate=1.0) => {
+      if (!unlocked || !buffer) return;
+      const src = ac.createBufferSource();
+      const g = ac.createGain();
+      src.buffer = buffer; src.playbackRate.value = rate;
+      g.gain.value = gain; src.connect(g); g.connect(master);
+      src.start();
+    };
 
-  // --- プレイヤー
-  const player={x:2,y:2,hp:6,item:'bomb',facing:'right',moveDelay:0,atkCD:0,useCD:0,alive:true};
+    const bgmGain = ac.createGain();
+    bgmGain.gain.value = 0.35;
+    bgmGain.connect(master);
+    let bgmBuf = null, bgmSrc = null;
 
-  // --- 敵・弾・爆弾・斬撃
-  const enemies=[];      // {type,x,y,hp,cd,moveTick}
-  const projectiles=[];  // {x,y,dx,dy,ttl,from}
-  const bombs=[];        // {x,y,timer}
-  const slashEffects=[]; // {x,y,dir,t}
-  const rng=Math.random;
+    async function loadBuffer(url){
+      const res = await fetch(url);
+      const arr = await res.arrayBuffer();
+      return await ac.decodeAudioData(arr);
+    }
 
-  // --- 入力
-  const keys={};
-  addEventListener('keydown',e=>{
-    keys[e.key]=true;
-    if([' ','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.key)) e.preventDefault();
-    if(e.key==='r' || e.key==='R') reset();
-  },{passive:false});
-  addEventListener('keyup',e=>{ keys[e.key]=false; });
+    async function ensureLoaded(){
+      // 失敗してもアプリは続行
+      try {
+        if (!buffers.sword) buffers.sword = await loadBuffer('sword.mp3');
+      } catch {}
+      try {
+        if (!bgmBuf) bgmBuf = await loadBuffer('bgm.mp3');
+      } catch {}
+    }
 
-  // --- タッチ割当
-  const bindHold=(el,key)=>{
-    const set=v=>{keys[key]=v};
-    const down=e=>{e.preventDefault(); set(true); navigator.vibrate?.(10);};
-    const up=()=> set(false);
-    el.addEventListener('pointerdown',down,{passive:false});
-    ['pointerup','pointerleave','pointercancel'].forEach(t=> el.addEventListener(t,up));
-  };
-  bindHold(document.getElementById('btn-up'),'ArrowUp');
-  bindHold(document.getElementById('btn-down'),'ArrowDown');
-  bindHold(document.getElementById('btn-left'),'ArrowLeft');
-  bindHold(document.getElementById('btn-right'),'ArrowRight');
-  bindHold(document.getElementById('btn-attack'),' ');
-  bindHold(document.getElementById('btn-use'),'z');
-  document.getElementById('btn-reset').addEventListener('pointerdown',e=>{e.preventDefault(); reset();});
-
-  // ===== SVG（プレイヤー＆敵＆HUD） =====
-  const heroSVG = `
-<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32">
-  <ellipse cx="16" cy="27" rx="8" ry="3" fill="#000" opacity=".25"/>
-  <path d="M6 18 Q16 30 26 18 L22 14 L10 14 Z" fill="#90caf9" stroke="#2b3d57" stroke-width="1.5"/>
-  <rect x="11" y="14" width="10" height="8" rx="2" fill="#6ec6a8" stroke="#2e6b5b" stroke-width="1.5"/>
-  <rect x="11" y="22" width="4" height="5" rx="1" fill="#5a4638"/>
-  <rect x="17" y="22" width="4" height="5" rx="1" fill="#5a4638"/>
-  <circle cx="16" cy="11" r="7" fill="#ffe0b2" stroke="#333" stroke-width="1.8"/>
-  <path d="M9 11 Q16 4 23 11 L23 9 Q16 2 9 9 Z" fill="#8bc34a" stroke="#2b5d1f" stroke-width="1.5"/>
-  <circle cx="13" cy="11" r="1.4" fill="#333"/>
-  <circle cx="19" cy="11" r="1.4" fill="#333"/>
-  <path d="M13 14 Q16 16 19 14" stroke="#d66" stroke-width="1.6" fill="none" stroke-linecap="round"/>
-</svg>`;
-
-  const slimeSVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
-  <path d="M4 22 Q16 6 28 22 Q28 28 4 28 Z" fill="#7cc37c" stroke="#3c8c3c" stroke-width="2"/>
-  <circle cx="12" cy="18" r="2" fill="#2b5d2b"/><circle cx="20" cy="18" r="2" fill="#2b5d2b"/>
-  <path d="M12 22 Q16 24 20 22" stroke="#2b5d2b" stroke-width="2" fill="none" stroke-linecap="round"/></svg>`;
-
-  const batSVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
-  <path d="M2 18 Q8 10 16 16 Q24 10 30 18 L22 18 Q16 24 10 18 Z" fill="#b0b0ff" stroke="#6666aa" stroke-width="2"/>
-  <circle cx="16" cy="16" r="3" fill="#e0e0ff"/></svg>`;
-
-  const archerSVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
-  <rect x="10" y="12" width="12" height="12" rx="3" fill="#d1c08a" stroke="#8a7a4a" stroke-width="2"/>
-  <circle cx="16" cy="10" r="4" fill="#e8d8a0" stroke="#8a7a4a" stroke-width="2"/>
-  <path d="M8 12 Q4 20 8 28" stroke="#6b4f2e" stroke-width="3" fill="none"/>
-  <path d="M8 16 L18 20" stroke="#6b4f2e" stroke-width="2"/></svg>`;
-
-  const heartSVG  = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><path d="M16 29s-13-8-13-17c0-5 4-9 9-9 3 0 6 2 8 4 2-2 5-4 8-4 5 0 9 4 9 9 0 9-13 17-13 17z" fill="#e53935" stroke="#b71c1c" stroke-width="2"/></svg>`;
-  const bombSVG   = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><circle cx="16" cy="20" r="10" fill="#212121" stroke="#424242" stroke-width="2"/><rect x="14" y="6" width="4" height="6" fill="#757575" stroke="#424242" stroke-width="2"/><path d="M16 4 Q18 0 22 2" stroke="#ffb300" stroke-width="2" fill="none"/></svg>`;
-
-  const svgImg = (svg)=>{ const img=new Image(); img.src='data:image/svg+xml;utf8,'+encodeURIComponent(svg); return img; };
-  const heroImg    = svgImg(heroSVG);
-  const imgs = { slime:svgImg(slimeSVG), bat:svgImg(batSVG), archer:svgImg(archerSVG), heart:svgImg(heartSVG), bomb:svgImg(bombSVG) };
-
-  // ===== 初期スポーン =====
-  function spawn(){
-    enemies.length=0; projectiles.length=0; bombs.length=0; slashEffects.length=0;
-    const place=()=>{let x,y; do{ x=1+Math.floor(rng()*(COLS-2)); y=1+Math.floor(rng()*(ROWS-2)); }while(!passable(x,y)||(x===player.x&&y===player.y)); return {x,y};};
-    player.x=2; player.y=2; player.hp=6; player.alive=true; player.facing='right';
-
-    for(let i=0;i<2;i++){ const p=place(); enemies.push({type:'slime',x:p.x,y:p.y,hp:2,cd:0,moveTick:0}); }
-    for(let i=0;i<2;i++){ const p=place(); enemies.push({type:'bat',x:p.x,y:p.y,hp:1,cd:0,moveTick:0}); }
-    { const p=place(); enemies.push({type:'archer',x:p.x,y:p.y,hp:2,cd:800,moveTick:0}); }
-  }
-
-  // ===== 剣・爆弾・共通 =====
-  function tryMove(dx,dy){
-    if(player.moveDelay>0 || !player.alive) return;
-    const nx=player.x+dx, ny=player.y+dy;
-    player.facing = dx>0?'right':dx<0?'left':dy>0?'down':'up';
-    if(passable(nx,ny)){ player.x=nx; player.y=ny; player.moveDelay= 120; }
-  }
-
-  function swordCells(px,py,dir){
-    if(dir==='right') return [[px+1,py],[px+1,py-1],[px+1,py+1]];
-    if(dir==='left')  return [[px-1,py],[px-1,py-1],[px-1,py+1]];
-    if(dir==='down')  return [[px,py+1],[px-1,py+1],[px+1,py+1]];
-    return [[px,py-1],[px-1,py-1],[px+1,py-1]]; // up
-  }
-  function dirVec(dir){ return dir==='right'?[1,0]:dir==='left'?[ -1,0 ]:dir==='down'?[0,1]:[0,-1]; }
-
-  function attack(){
-    if(player.atkCD>0 || !player.alive) return; 
-    player.atkCD=220;
-
-    const cells = swordCells(player.x,player.y,player.facing);
-    const [kdx,kdy] = dirVec(player.facing);
-
-    // 斬撃エフェクト
-    slashEffects.push({x:player.x,y:player.y,dir:player.facing,t:140});
-
-    // ヒット判定
-    for(const e of enemies){
-      if(e.hp<=0) continue;
-      if(cells.some(([x,y])=> x===e.x && y===e.y)){
-        e.hp--;
-        // ノックバック
-        const nx=e.x+kdx, ny=e.y+kdy;
-        if(passable(nx,ny)) { e.x=nx; e.y=ny; }
+    function startBGM(){
+      if (!unlocked || !bgmBuf) return;
+      stopBGM();
+      bgmSrc = ac.createBufferSource();
+      bgmSrc.buffer = bgmBuf;
+      bgmSrc.loop = true;
+      bgmSrc.connect(bgmGain);
+      try { bgmSrc.start(); } catch {}
+    }
+    function stopBGM(){
+      if (bgmSrc){
+        try { bgmSrc.stop(); } catch {}
+        try { bgmSrc.disconnect(); } catch {}
+        bgmSrc = null;
       }
     }
+
+    return { ac, master, unlock, beep, oneShot, loadBuffer, ensureLoaded, startBGM, stopBGM, bgmGain, get unlocked(){return unlocked;} };
+  })();
+
+  // 効果音バッファ
+  const buffers = { sword: null };
+
+  // 初回ユーザー操作でオーディオ解禁＆読み込み
+  const unlockAudio = async () => {
+    Sound.unlock();
+    // 読み込み＆BGM開始（設定ONのとき）
+    try {
+      await Sound.ensureLoaded();
+      if (state.settings.bgmOn) Sound.startBGM();
+    } catch (e) { /* 無視 */ }
+    window.removeEventListener('pointerdown', unlockAudio, {passive:false});
+  };
+  window.addEventListener('pointerdown', unlockAudio, {passive:false});
+
+  // ダブルタップズーム抑止
+  let lastTouchEnd = 0;
+  window.addEventListener('touchend', (e) => {
+    const t = e.timeStamp;
+    if (t - lastTouchEnd < 300) e.preventDefault();
+    lastTouchEnd = t;
+  }, {passive:false});
+
+  // ------------------------------
+  // 入力マネージャ（Touch / Keyboard / Gamepad）
+  // ------------------------------
+  const Input = {
+    ax: 0, ay: 0,
+    a: false, b: false, x: false,
+    aDown: false, bDown: false, xDown: false, // エッジ
+    aUp: false, bUp: false, xUp: false,
+    keymap: new Map(),
+    gamepad: null,
+    dead: 0.2,
+    updateEdges() {
+      this.aDown = this.a && !this._pa; this._pa = this.a;
+      this.bDown = this.b && !this._pb; this._pb = this.b;
+      this.xDown = this.x && !this._px; this._px = this.x;
+      this.aUp = !this.a && this._ua; this._ua = !this.a;
+      this.bUp = !this.b && this._ub; this._ub = !this.b;
+      this.xUp = !this.x && this._ux; this._ux = !this.x;
+    },
+    resetButtons() { this.a = this.b = this.x = false; },
+  };
+
+  // Keyboard
+  const KEY = { ArrowLeft: 'L', ArrowRight: 'R', ArrowUp: 'U', ArrowDown: 'D', a:'A', z:'B', x:'X', ' ':'A', j:'A', k:'B' }
+  window.addEventListener('keydown', (e) => {
+    const k = e.key;
+    if (k in KEY || k === 'Escape') e.preventDefault();
+    switch(k){
+      case 'ArrowLeft': Input.ax = -1; break;
+      case 'ArrowRight': Input.ax = 1; break;
+      case 'ArrowUp': Input.ay = -1; break;
+      case 'ArrowDown': Input.ay = 1; break;
+      case ' ': case 'j': Input.a = true; break;
+      case 'k': case 'z': Input.b = true; break;
+      case 'x': Input.x = true; break;
+      case 'Escape': togglePause(true); break;
+    }
+  }, {passive:false});
+  window.addEventListener('keyup', (e) => {
+    const k = e.key;
+    switch(k){
+      case 'ArrowLeft': if (Input.ax<0) Input.ax = 0; break;
+      case 'ArrowRight': if (Input.ax>0) Input.ax = 0; break;
+      case 'ArrowUp': if (Input.ay<0) Input.ay = 0; break;
+      case 'ArrowDown': if (Input.ay>0) Input.ay = 0; break;
+      case ' ': case 'j': Input.a = false; break;
+      case 'k': case 'z': Input.b = false; break;
+      case 'x': Input.x = false; break;
+    }
+  }, {passive:false});
+
+  // Touch (仮想スティック & ボタン)
+  const stick = document.getElementById('stick');
+  const stickKnob = document.getElementById('stickKnob');
+  const btnA = document.getElementById('btnA');
+  const btnB = document.getElementById('btnB');
+  const btnX = document.getElementById('btnX');
+
+  let stickId = null; let stickCenter = {x:0,y:0}; const R = 56; // スティック半径
+  const setKnob = (dx,dy)=>{ stickKnob.style.transform = `translate(${dx}px, ${dy}px)`; };
+
+  const onStickDown = (e)=>{
+    e.preventDefault();
+    const p = (e.changedTouches? e.changedTouches[0]: e); stickId = p.identifier ?? 'mouse';
+    const rect = stick.getBoundingClientRect();
+    stickCenter.x = p.clientX; stickCenter.y = p.clientY;
+    updateStick(p);
+  };
+  const updateStick = (p)=>{
+    const dx = p.clientX - stickCenter.x; const dy = p.clientY - stickCenter.y;
+    const len = Math.hypot(dx,dy) || 1; const cl = Math.min(len, R);
+    const nx = dx/len, ny = dy/len; // 正規化
+    const kx = nx*cl, ky = ny*cl;
+    setKnob(kx, ky);
+    Input.ax = (cl/R)*nx; Input.ay = (cl/R)*ny;
+  };
+  const onStickMove = (e)=>{
+    const touches = e.changedTouches || [e];
+    for (const t of touches){ if ((t.identifier ?? 'mouse') === stickId){ updateStick(t); e.preventDefault(); return; } }
+  };
+  const onStickUp = (e)=>{
+    const touches = e.changedTouches || [e];
+    for (const t of touches){ if ((t.identifier ?? 'mouse') === stickId){ stickId=null; setKnob(-32,-32); Input.ax=0; Input.ay=0; e.preventDefault(); return; } }
+  };
+  stick.addEventListener('pointerdown', onStickDown, {passive:false});
+  stick.addEventListener('pointermove', onStickMove, {passive:false});
+  window.addEventListener('pointerup', onStickUp, {passive:false});
+  stick.addEventListener('touchstart', onStickDown, {passive:false});
+  stick.addEventListener('touchmove', onStickMove, {passive:false});
+  stick.addEventListener('touchend', onStickUp, {passive:false});
+
+  const pressBtn = (key) => (e)=>{ e.preventDefault(); Input[key]=true; Sound.beep(660,0.05,'square',0.02); };
+  const releaseBtn = (key) => (e)=>{ e.preventDefault(); Input[key]=false; };
+  for (const [el, key] of [[btnA,'a'],[btnB,'b'],[btnX,'x']]){
+    el.addEventListener('pointerdown', pressBtn(key), {passive:false});
+    el.addEventListener('pointerup', releaseBtn(key), {passive:false});
+    el.addEventListener('pointerleave', releaseBtn(key), {passive:false});
+    el.addEventListener('touchstart', pressBtn(key), {passive:false});
+    el.addEventListener('touchend', releaseBtn(key), {passive:false});
   }
 
-  function useItem(){
-    if(player.useCD>0 || !player.alive) return; player.useCD=260;
-    if(bombs.some(b=>b.x===player.x&&b.y===player.y)) return;
-    bombs.push({x:player.x,y:player.y,timer:900});
+  // Gamepad
+  window.addEventListener('gamepadconnected', (e)=>{ state.hasGamepad = true; showToast('Gamepad 接続'); document.body.classList.add('gamepad'); });
+  window.addEventListener('gamepaddisconnected', (e)=>{ state.hasGamepad = false; showToast('Gamepad 切断'); document.body.classList.remove('gamepad'); });
+
+  function pollGamepad(){
+    const pads = navigator.getGamepads?.() || [];
+    const gp = pads[0];
+    if (!gp) return;
+    const axX = Math.abs(gp.axes[0])>Input.dead? gp.axes[0] : 0;
+    const axY = Math.abs(gp.axes[1])>Input.dead? gp.axes[1] : 0;
+    Input.ax = axX; Input.ay = axY;
+    // 既定: A=0 / B=1 / X=2 / Start=9 （Xbox系）
+    Input.a = gp.buttons[0]?.pressed || Input.a;
+    Input.b = gp.buttons[1]?.pressed || Input.b;
+    Input.x = gp.buttons[2]?.pressed || Input.x;
+    if (gp.buttons[9]?.pressed) togglePause(true);
   }
 
-  function explode(b){
-    const cells=[[0,0],[1,0],[-1,0],[0,1],[0,-1]].map(([dx,dy])=>[b.x+dx,b.y+dy]);
-    enemies.forEach(e=>{
-      if(e.hp<=0) return;
-      if(cells.some(([x,y])=> x===e.x && y===e.y)) e.hp--;
-    });
-    if(cells.some(([x,y])=> x===player.x && y===player.y)) hurt(1);
+  // ------------------------------
+  // ゲーム状態
+  // ------------------------------
+  const state = {
+    coins: 0,
+    hp: 5, maxHp: 5,
+    hasGamepad: false,
+    tutorialStep: 0,
+    paused: false,
+    hintText: '', hintTimer: 0,
+    settings: Object.assign(
+      { handed: 'right', oneHand: false, btnSize: 64, theme: 'default', fontScale: 1, bgmOn: true, bgmVol: 0.35 },
+      loadSettings()
+    ),
+  };
+
+  // Hearts / Coins 表示
+  const heartEl = document.getElementById('hearts');
+  const coinsEl = document.getElementById('coins');
+  function renderHUD(){
+    heartEl.innerHTML = '';
+    for (let i=0;i<state.maxHp;i++){
+      const d = document.createElement('div'); d.className = 'heart' + (i >= state.hp? ' empty':''); heartEl.appendChild(d);
+    }
+    coinsEl.textContent = state.coins|0;
   }
 
-  function shoot(from,dx,dy,ttl=1500){ projectiles.push({x:from.x,y:from.y,dx,dy,ttl,from}); }
-  function clearLine(x0,y0,x1,y1){
-    if(x0===x1){ const a=Math.min(y0,y1), b=Math.max(y0,y1); for(let y=a+1;y<b;y++) if(solid(x0,y)) return false; return true; }
-    if(y0===y1){ const a=Math.min(x0,x1), b=Math.max(x0,x1); for(let x=a+1;x<b;x++) if(solid(x,y0)) return false; return true; }
+  // Hint / Toast
+  const hintEl = document.getElementById('hint');
+  let toastTimer = 0; const toastEl = document.getElementById('toast');
+  function showHint(txt, secs=1.2){ state.hintText = txt; state.hintTimer = secs; hintEl.textContent = txt; hintEl.classList.add('show'); }
+  function tickHint(dt){ if (state.hintTimer>0){ state.hintTimer-=dt; if (state.hintTimer<=0) hintEl.classList.remove('show'); } }
+  function showToast(txt){ toastEl.textContent = txt; toastEl.classList.add('show'); clearTimeout(toastTimer); toastTimer = setTimeout(()=> toastEl.classList.remove('show'), 2000); }
+
+  // ------------------------------
+  // 簡易マップ（タイル16px）
+  // ------------------------------
+  const TS = 16; const COLS = W/TS|0; const ROWS = H/TS|0; // 20x11
+  const T = { GRASS:0, TREE:1, WATER:2, TALL:3, PATH:4 };
+  const map = new Array(ROWS).fill(0).map(()=> new Array(COLS).fill(T.GRASS));
+
+  function rng(seed){ let s=seed; return ()=> (s = (s*1664525+1013904223)|0) >>> 0; }
+  const rnd = rng(12345);
+  // 村の広場（中央付近）
+  for(let y=3;y<8;y++) for(let x=4;x<16;x++) map[y][x]=T.PATH;
+  // 木・水・背の高い草
+  for(let i=0;i<60;i++){
+    const x=(rnd()%COLS)|0, y=(rnd()%ROWS)|0; if (map[y][x]===T.GRASS) map[y][x]=T.TREE;
+  }
+  for(let i=0;i<20;i++){
+    const x=(rnd()%COLS)|0, y=(rnd()%ROWS)|0; if (map[y][x]===T.GRASS) map[y][x]=T.WATER;
+  }
+  for(let i=0;i<40;i++){
+    const x=(rnd()%COLS)|0, y=(rnd()%ROWS)|0; if (map[y][x]===T.GRASS) map[y][x]=T.TALL;
+  }
+  const isBlock = (t)=> t===T.TREE || t===T.WATER;
+
+  // ------------------------------
+  // エンティティ
+  // ------------------------------
+  class Entity{
+    constructor(x,y){ this.x=x; this.y=y; this.w=12; this.h=12; this.vx=0; this.vy=0; this.dir=1; this.hp=1; this.dead=false; }
+    aabb(){ return {x:this.x-this.w/2, y:this.y-this.h/2, w:this.w, h:this.h}; }
+  }
+  class Player extends Entity{
+    constructor(x,y){ super(x,y); this.speed=60; this.hp=state.hp; this.maxHp=state.maxHp; this.inv=0; this.attackCd=0;
+      // 追加：剣の表示用
+      this.swordT = 0;    // 残り時間
+      this.sdx = 1; this.sdy = 0; // 方向
+    }
+  }
+  class Slime extends Entity{
+    constructor(x,y){ super(x,y); this.speed=30; this.hp=2; this.change=0; }
+    update(dt){ if ((this.change-=dt)<=0){ this.change= (rnd()%200)/100 + 0.6; const ang=(rnd()%628)/100; this.vx=Math.cos(ang)*this.speed; this.vy=Math.sin(ang)*this.speed; } }
+  }
+  class Archer extends Entity{
+    constructor(x,y){ super(x,y); this.hp=3; this.cd=0; this.range=180; }
+  }
+  class Arrow extends Entity{
+    constructor(x,y,vx,vy){ super(x,y); this.vx=vx; this.vy=vy; this.w=6; this.h=2; this.life=2; }
+  }
+  class Bomb{ constructor(x,y){ this.x=x; this.y=y; this.t=1.2; this.exploded=false; } }
+  class Explosion{ constructor(x,y){ this.x=x; this.y=y; this.t=0.3; this.power=2; } }
+
+  const player = new Player(160, 96);
+  const npcs = [{x: 160, y: 56, r: 14, text: 'こんにちは。Bで話す。'}];
+  const chests = [{x: 208, y: 96, r: 12, opened:false}];
+  const slimes = [new Slime(80,140), new Slime(260,40)];
+  const archers = [new Archer(56,40)];
+  const arrows = [];
+  const bombs = []; const blasts = [];
+
+  // 衝突（タイル）
+  function moveWithTile(e, dt){
+    let nx = e.x + e.vx * dt;
+    let ny = e.y + e.vy * dt;
+    // X
+    if (!collidesTile(nx, e.y, e.w, e.h)) e.x = nx; else e.vx=0;
+    // Y
+    if (!collidesTile(e.x, ny, e.w, e.h)) e.y = ny; else e.vy=0;
+  }
+  function collidesTile(cx, cy, w, h){
+    const x0 = ((cx-w/2)/TS)|0, x1 = ((cx+w/2)/TS)|0;
+    const y0 = ((cy-h/2)/TS)|0, y1 = ((cy+h/2)/TS)|0;
+    for(let y=y0;y<=y1;y++) for(let x=x0;x<=x1;x++){
+      if (x<0||y<0||x>=COLS||y>=ROWS) return true;
+      if (isBlock(map[y][x])) return true;
+    }
     return false;
   }
 
-  function hurt(n){
-    if(!player.alive) return;
-    player.hp=Math.max(0,player.hp-n);
-    if(player.hp===0) player.alive=false;
+  // 近接攻撃（前方矩形）＋ 剣の表示＆効果音
+  function attack(){
+    if (player.attackCd>0) return; player.attackCd = 0.28;
+    // 攻撃方向
+    const dirX = Math.sign(Input.ax || player.dir) || player.dir;
+    const dirY = Math.sign(Input.ay || 0);
+    player.sdx = dirX; player.sdy = dirY;
+    player.swordT = 0.16; // 160ms だけ表示
+
+    // 効果音：剣（読み込み済みなら優先、なければ従来のビープ）
+    if (buffers.sword && Sound.unlocked) { Sound.oneShot(buffers.sword, 0.65, 1.0); }
+    else { Sound.beep(880,0.05,'square',0.04); }
+
+    // 当たり判定（従来どおり）
+    const range = 16; const w=14,h=10; // 前方
+    const ax = player.x + dirX*range; const ay = player.y + dirY*range;
+    const hit = (e)=> Math.abs(e.x-ax)<(w) && Math.abs(e.y-ay)<(h);
+    for (const s of slimes){ if (!s.dead && hit(s)){ s.hp--; if (s.hp<=0){ s.dead=true; state.coins+=3; showHint('+3'); }} }
+    for (const a of archers){ if (!a.dead && hit(a)){ a.hp--; if (a.hp<=0){ a.dead=true; state.coins+=5; showHint('+5'); }} }
   }
 
-  function reset(){ spawn(); }
+  // 爆弾
+  function placeBomb(){ bombs.push(new Bomb(Math.round(player.x/TS)*TS, Math.round(player.y/TS)*TS)); Sound.beep(220,0.05,'sawtooth',0.04); }
 
-  // ===== 更新 =====
-  let last=performance.now();
-  function update(now){
-    const dt=now-last; last=now;
-    if(player.moveDelay>0) player.moveDelay-=dt;
-    if(player.atkCD>0) player.atkCD-=dt;
-    if(player.useCD>0) player.useCD-=dt;
+  // 弾と当たり
+  function hitPlayer(dmg){ if (player.inv>0) return; player.hp = Math.max(0, player.hp - dmg); state.hp = player.hp; player.inv = 1; Sound.beep(200,0.08,'sawtooth',0.05); if (player.hp<=0) respawn(); }
+  function respawn(){ state.coins = (state.coins/2)|0; player.x=160; player.y=96; player.hp=player.maxHp; state.hp=player.hp; showHint('村にもどった'); }
 
-    // 入力
-    if(keys['ArrowLeft']) tryMove(-1,0);
-    else if(keys['ArrowRight']) tryMove(1,0);
-    else if(keys['ArrowUp']) tryMove(0,-1);
-    else if(keys['ArrowDown']) tryMove(0,1);
-    if(keys[' ']) attack();
-    if(keys['z']||keys['Z']) useItem();
-
-    // 斬撃エフェクト更新
-    for(const s of slashEffects){ s.t-=dt; }
-    for(let i=slashEffects.length-1;i>=0;i--) if(slashEffects[i].t<=0) slashEffects.splice(i,1);
-
-    // 敵AI
-    for(const e of enemies){
-      if(e.hp<=0) continue;
-      e.moveTick=(e.moveTick||0)-dt;
-      const base = e.type==='bat'? 260 : e.type==='slime'? 520 : 680;
-      if(e.moveTick<=0){
-        e.moveTick=base;
-        const dx=Math.sign(player.x-e.x), dy=Math.sign(player.y-e.y);
-        const order = Math.random()<.5? [[dx,0],[0,dy]] : [[0,dy],[dx,0]];
-        for(const [mx,my] of order){
-          const nx=e.x+mx, ny=e.y+my;
-          if(passable(nx,ny)){ e.x=nx; e.y=ny; break; }
-        }
-      }
-      if(Math.abs(e.x-player.x)+Math.abs(e.y-player.y)===1 && Math.random()<.08) hurt(1);
-
-      if(e.type==='archer'){
-        e.cd=(e.cd||0)-dt;
-        if(e.cd<=0){
-          if(e.x===player.x && clearLine(e.x,e.y,player.x,player.y)){
-            const dy=Math.sign(player.y-e.y); shoot(e,0,dy,1600); e.cd=1200;
-          }else if(e.y===player.y && clearLine(e.x,e.y,player.x,player.y)){
-            const dx=Math.sign(player.x-e.x); shoot(e,dx,0,1600); e.cd=1200;
-          }else{
-            e.cd=500;
-          }
-        }
-      }
-    }
-
-    // 弾更新
-    for(const p of projectiles){
-      p.ttl-=dt; if(p.ttl<=0){ p.dead=true; continue; }
-      p.st=(p.st||0)+dt;
-      while(p.st>=50){
-        p.st-=50;
-        const nx=p.x+p.dx, ny=p.y+p.dy;
-        if(!passable(nx,ny)){ p.dead=true; break; }
-        p.x=nx; p.y=ny;
-        if(nx===player.x && ny===player.y){ hurt(1); p.dead=true; break; }
-      }
-    }
-    // 爆弾
-    for(const b of bombs){ b.timer-=dt; if(b.timer<=0){ explode(b); b.dead=true; } }
-
-    // 片付け
-    for(let i=projectiles.length-1;i>=0;i--) if(projectiles[i].dead) projectiles.splice(i,1);
-    for(let i=bombs.length-1;i>=0;i--) if(bombs[i].dead) bombs.splice(i,1);
-
-    // HUD
-    const aliveTxt = player.alive? '生存中' : '倒れました（Rで再開）';
-    HUD.textContent = `HP:${player.hp}　敵:${enemies.filter(e=>e.hp>0).length}　状態:${aliveTxt}`;
+  // 視線（直線）判定（タイル障害物で遮られる）
+  function hasLineOfSight(x0,y0,x1,y1){
+    const steps = 40; for(let i=1;i<steps;i++){ const t=i/steps; const x=lerp(x0,x1,t), y=lerp(y0,y1,t); const tx=(x/TS)|0, ty=(y/TS)|0; if (isBlock(map[ty]?.[tx])) return false; }
+    return true;
   }
 
-  // ===== 描画 =====
+  // ------------------------------
+  // 描画
+  // ------------------------------
   function draw(){
-    ctx.fillStyle='#0a0a0a'; ctx.fillRect(0,0,canvas.width,canvas.height);
+    ctx.clearRect(0,0,W,H);
 
     // タイル
-    for(let y=0;y<ROWS;y++)for(let x=0;x<COLS;x++){
-      if(map[y][x]===T.FLOOR){
-        ctx.fillStyle='#222'; ctx.fillRect(x*TILE,y*TILE,TILE,TILE);
-      }else{
-        ctx.fillStyle='#484848'; ctx.fillRect(x*TILE,y*TILE,TILE,TILE);
-        ctx.fillStyle='#3a3a3a'; ctx.fillRect(x*TILE+6,y*TILE+6,TILE-12,TILE-12);
+    for(let y=0;y<ROWS;y++) for(let x=0;x<COLS;x++){
+      const t = map[y][x];
+      const px = x*TS, py=y*TS;
+      switch(t){
+        case T.GRASS: ctx.fillStyle='#20351f'; break;
+        case T.PATH: ctx.fillStyle='#3b3430'; break;
+        case T.TREE: ctx.fillStyle='#254a2e'; break;
+        case T.WATER: ctx.fillStyle='#1a3550'; break;
+        case T.TALL: ctx.fillStyle='#2a5a2a'; break;
       }
+      ctx.fillRect(px,py,TS,TS);
+      if (t===T.WATER){ ctx.fillStyle='rgba(255,255,255,0.06)'; ctx.fillRect(px,py,TS,TS*0.5); }
     }
+
+    // NPC
+    for (const n of npcs){
+      ctx.fillStyle = '#8bd3ff'; ctx.fillRect(n.x-6,n.y-10,12,20);
+    }
+    // Chest
+    for (const c of chests){ ctx.fillStyle = c.opened? '#8e6b3f' : '#c69749'; ctx.fillRect(c.x-8,c.y-6,16,12); }
 
     // 爆弾
-    for(const b of bombs){
-      if(imgs.bomb.complete) ctx.drawImage(imgs.bomb, b.x*TILE, b.y*TILE, TILE, TILE);
-      else { ctx.fillStyle='#222'; ctx.fillRect(b.x*TILE+8,b.y*TILE+8,16,16); }
-    }
+    for (const b of bombs){ ctx.fillStyle='#777'; ctx.fillRect(b.x-4,b.y-4,8,8); }
+    for (const ex of blasts){ ctx.fillStyle='rgba(255,220,120,0.7)'; ctx.fillRect(ex.x-TS, ex.y-2, TS*2,4); ctx.fillRect(ex.x-2, ex.y-TS, 4, TS*2); }
 
-    // プレイヤー
-    if(heroImg.complete){
-      ctx.drawImage(heroImg, player.x*TILE, player.y*TILE, TILE, TILE);
-    }else{
-      ctx.fillStyle='#7be0ff'; ctx.fillRect(player.x*TILE+8,player.y*TILE+8,16,16);
-    }
-
-    // 斬撃エフェクト（半透明扇）
-    for(const s of slashEffects){
-      ctx.save();
-      ctx.globalAlpha = Math.max(0, s.t/140) * 0.6;
-      ctx.fillStyle = '#cfe8ff';
-      const px = player.x*TILE + 16, py = player.y*TILE + 16;
-      ctx.translate(px,py);
-      const ang = s.dir==='right'?0 : s.dir==='down'?Math.PI/2 : s.dir==='left'?Math.PI : -Math.PI/2;
-      ctx.rotate(ang);
-      ctx.beginPath();
-      ctx.moveTo(8, -14);
-      ctx.quadraticCurveTo(28, -6, 28, 0);
-      ctx.quadraticCurveTo(28, 6, 8, 14);
-      ctx.closePath();
-      ctx.fill();
-      ctx.restore();
-    }
+    // 矢
+    for (const ar of arrows){ ctx.fillStyle='#ddd'; ctx.fillRect(ar.x-3, ar.y-1, 6, 2); }
 
     // 敵
-    for(const e of enemies){
-      if(e.hp<=0) continue;
-      let img = e.type==='slime'? imgs.slime : e.type==='bat'? imgs.bat : imgs.archer;
-      if(img.complete) ctx.drawImage(img, e.x*TILE, e.y*TILE, TILE, TILE);
-      else { ctx.fillStyle='#c66'; ctx.fillRect(e.x*TILE+8,e.y*TILE+8,16,16); }
-    }
+    for (const s of slimes){ if (s.dead) continue; ctx.fillStyle='#6cf07a'; ctx.fillRect(s.x-6,s.y-5,12,10); }
+    for (const a of archers){ if (a.dead) continue; ctx.fillStyle='#b7a1f0'; ctx.fillRect(a.x-6,a.y-6,12,12); }
 
-    // 弾
-    ctx.fillStyle='#ff6666';
-    for(const p of projectiles){ ctx.fillRect(p.x*TILE+12,p.y*TILE+12,8,8); }
+    // プレイヤー
+    ctx.save();
+    if (player.inv>0){ ctx.globalAlpha = 0.6 + 0.4*Math.sin(performance.now()*0.02); }
+    ctx.fillStyle='#f2f4f8'; ctx.fillRect(player.x-6, player.y-8, 12, 16);
+    ctx.restore();
 
-    // HUD（ハート）
-    for(let i=0;i<player.hp;i++){
-      if(imgs.heart.complete) ctx.drawImage(imgs.heart, 8+i*18, 8, 16, 16);
-      else { ctx.fillStyle='#e53935'; ctx.fillRect(8+i*18,8,16,16); }
+    // 追加：剣の描画（簡易ドット）
+    if (player.swordT > 0){
+      const a = clamp(player.swordT / 0.16, 0, 1);
+      ctx.save();
+      ctx.globalAlpha = a;
+      ctx.fillStyle = '#e8e8e8';
+      ctx.strokeStyle = 'rgba(0,0,0,0.45)';
+      ctx.lineWidth = 1;
+      const dx = player.sdx, dy = player.sdy;
+      if (Math.abs(dx) >= Math.abs(dy)) {
+        // 横振り
+        const dir = dx>=0 ? 1 : -1;
+        const x = player.x + dir*12;
+        const y = player.y;
+        ctx.fillRect(x - (dir>0?0:12), y-2, 12, 4); // ブレード
+        // 柄
+        ctx.fillStyle = '#c29b58'; ctx.fillRect(player.x + dir*6 -2, player.y-1, 4, 2);
+      } else {
+        // 縦振り
+        const dir = dy>=0 ? 1 : -1;
+        const x = player.x;
+        const y = player.y + dir*12;
+        ctx.fillRect(x-2, y - (dir>0?0:12), 4, 12);
+        ctx.fillStyle = '#c29b58'; ctx.fillRect(player.x-1, player.y + dir*6 -2, 2, 4);
+      }
+      ctx.restore();
     }
   }
 
-  // ===== ループ開始 =====
-  function loop(ts){ update(ts); draw(); requestAnimationFrame(loop); }
-  function start(){ spawn(); requestAnimationFrame(t=>{ last=t; loop(t); }); }
-  start();
+  // ------------------------------
+  // 更新
+  // ------------------------------
+  function update(dt){
+    // 入力
+    const speed = player.speed;
+    player.vx = Input.ax * speed; player.vy = Input.ay * speed;
+    if (Math.abs(Input.ax) > 0.1) player.dir = Math.sign(Input.ax);
+
+    // 近接攻撃
+    if (Input.aDown) attack();
+    if (Input.xDown) placeBomb();
+
+    if (player.attackCd>0) player.attackCd-=dt;
+    if (player.inv>0) player.inv-=dt;
+    if (player.swordT>0) player.swordT-=dt;
+
+    moveWithTile(player, dt);
+
+    // コンテキスト（B）
+    let canTalk = false, canOpen = false;
+    const near = (o,r)=> dist2(player.x,player.y,o.x,o.y) < (r*r);
+    for (const n of npcs){ if (near(n, 16)) canTalk = true; }
+    for (const c of chests){ if (!c.opened && near(c, 16)) canOpen = true; }
+    if (canTalk) showHint('B：話す'); else if (canOpen) showHint('B：開ける');
+    if (Input.bDown){
+      if (canTalk){ Sound.beep(660,0.06,'triangle',0.04); showHint('こんにちは'); }
+      else if (canOpen){ const chest = chests.find(c=>!c.opened && near(c,16)); if (chest){ chest.opened = true; state.coins+=10; Sound.beep(880,0.08,'triangle',0.05); showHint('+10'); }}
+    }
+
+    // スライム
+    for (const s of slimes){ if (s.dead) continue; s.update(dt); moveWithTile(s, dt); if (dist2(s.x,s.y,player.x,player.y) < 14*14) hitPlayer(1); }
+
+    // アーチャー
+    for (const a of archers){ if (a.dead) continue; if ((a.cd-=dt)<=0){
+      // 同列 or 同行で直線射撃、障害物がなければ撃つ
+      if (Math.abs(a.y-player.y)<8 && hasLineOfSight(a.x,a.y,player.x,player.y)) { const vx = Math.sign(player.x-a.x)*120; arrows.push(new Arrow(a.x, a.y, vx, 0)); a.cd=1.2; Sound.beep(520,0.04,'square',0.03);} 
+      else if (Math.abs(a.x-player.x)<8 && hasLineOfSight(a.x,a.y,player.x,player.y)) { const vy = Math.sign(player.y-a.y)*120; arrows.push(new Arrow(a.x, a.y, 0, vy)); a.cd=1.2; Sound.beep(520,0.04,'square',0.03);} 
+      else a.cd=0.3;
+    } }
+
+    // 矢
+    for (const ar of arrows){ ar.x += ar.vx*dt; ar.y += ar.vy*dt; ar.life-=dt; if (collidesTile(ar.x,ar.y,6,2)) ar.life=0; if (ar.life<=0) ar.dead=true; if (dist2(ar.x,ar.y,player.x,player.y)<10*10){ ar.dead=true; hitPlayer(1);} }
+
+    // 爆弾
+    for (const b of bombs){ b.t-=dt; if (!b.exploded && b.t<=0){ b.exploded = true; blasts.push(new Explosion(b.x,b.y)); Sound.beep(100,0.12,'square',0.06); // ヒット
+      const hitRect = (e)=> Math.abs(e.x-b.x)<TS && Math.abs(e.y-b.y)<4 || Math.abs(e.y-b.y)<TS && Math.abs(e.x-b.x)<4;
+      for (const s of slimes){ if (!s.dead && hitRect(s)){ s.dead=true; state.coins+=3; showHint('+3'); } }
+      for (const a of archers){ if (!a.dead && hitRect(a)){ a.dead=true; state.coins+=5; showHint('+5'); } }
+      if (hitRect(player)) hitPlayer(1);
+    } }
+    for (let i=bombs.length-1;i>=0;i--){ if (bombs[i].exploded && bombs[i].t<=-0.2) bombs.splice(i,1); }
+    for (const ex of blasts){ ex.t-=dt; }
+
+    // 後片付け
+    for (let i=arrows.length-1;i>=0;i--) if (arrows[i].dead) arrows.splice(i,1);
+    for (let i=blasts.length-1;i>=0;i--) if (blasts[i].t<=0) blasts.splice(i,1);
+
+    // チュートリアル進行（60秒想定・段階的）
+    tutorialTick(dt, { moved: (Math.abs(Input.ax)+Math.abs(Input.ay))>0.5, attacked: Input.aDown, opened: (Input.bDown && canOpen), talked: (Input.bDown && canTalk)});
+
+    // UI
+    renderHUD(); tickHint(dt);
+  }
+
+  // ------------------------------
+  // ループ（固定タイムステップ）
+  // ------------------------------
+  let acc = 0; const FIXED = 1/60; let last = now();
+  function loop(){
+    const t = now(); let dt = (t - last)/1000; last = t; dt = Math.min(dt, 0.05); // フリーズ対策
+
+    if (!state.paused){
+      if (navigator.getGamepads) pollGamepad();
+      acc += dt; while (acc >= FIXED){ Input.updateEdges(); update(FIXED); acc -= FIXED; Input.aDown=Input.bDown=Input.xDown=false; /* フレーム内で一度だけ */ }
+      draw();
+    }
+    requestAnimationFrame(loop);
+  }
+  requestAnimationFrame(loop);
+
+  // ------------------------------
+  // チュートリアル
+  // ------------------------------
+  const tut = document.getElementById('tutorial');
+  const tutContent = document.getElementById('tutContent');
+  const tutNext = document.getElementById('tutNext');
+  const tutSkip = document.getElementById('tutSkip');
+  const steps = [
+    { text: 'まずは動いてみてください。', check: s=> s.moved },
+    { text: 'Aで攻撃。草や敵に当たります。', check: s=> s.attacked },
+    { text: 'Bで宝箱を開ける。', check: s=> s.opened },
+    { text: '近づいてBで話す。', check: s=> s.talked },
+  ];
+  function tutorialOpen(){ state.tutorialStep = 0; tut.showModal(); renderStep(); }
+  function renderStep(){ tutContent.innerHTML = `<p>${steps[state.tutorialStep].text} <span class="des">（スティック/矢印・A・B）</span></p>`; }
+  function tutorialTick(dt, flags){
+    const st = steps[state.tutorialStep]; if (!st) return; if (st.check(flags)) nextStep();
+  }
+  function nextStep(){ state.tutorialStep++; if (state.tutorialStep >= steps.length){ tut.close(); showHint('がんばって'); } else { renderStep(); } }
+  tutNext.addEventListener('click', ()=> nextStep());
+  tutSkip.addEventListener('click', ()=> tut.close());
+  setTimeout(tutorialOpen, 400); // 起動後に開く
+
+  // ------------------------------
+  // ポーズ/設定
+  // ------------------------------
+  const pause = document.getElementById('pause');
+  const btnPause = document.getElementById('btnPause');
+  const btnClose = document.getElementById('btnClose');
+  const btnReset = document.getElementById('btnReset');
+
+  const rightHand = document.getElementById('rightHand');
+  const leftHand = document.getElementById('leftHand');
+  const oneHandOn = document.getElementById('oneHandOn');
+  const oneHandOff = document.getElementById('oneHandOff');
+  const btnSize = document.getElementById('btnSize');
+  const themeDefault = document.getElementById('themeDefault');
+  const themeAlt = document.getElementById('themeAlt');
+
+  // 文字サイズボタン群
+  const fontButtons = [...pause.querySelectorAll('[data-font]')];
+
+  // 追加：BGM UI
+  const bgmOnBtn = document.getElementById('bgmOn');
+  const bgmOffBtn = document.getElementById('bgmOff');
+  const bgmVol = document.getElementById('bgmVol');
+
+  function applySettings(){
+    document.body.classList.toggle('one-hand', !!state.settings.oneHand);
+    document.body.classList.toggle('lefty', state.settings.handed === 'left');
+    document.body.classList.toggle('theme-alt', state.settings.theme === 'alt');
+    document.documentElement.style.setProperty('--btn-size', `${state.settings.btnSize}px`);
+    document.documentElement.style.setProperty('--font-scale', state.settings.fontScale);
+
+    // UI反映
+    rightHand.classList.toggle('active', state.settings.handed==='right');
+    leftHand.classList.toggle('active', state.settings.handed==='left');
+    oneHandOn.classList.toggle('active', !!state.settings.oneHand);
+    oneHandOff.classList.toggle('active', !state.settings.oneHand);
+    btnSize.value = state.settings.btnSize;
+    themeDefault.classList.toggle('active', state.settings.theme==='default');
+    themeAlt.classList.toggle('active', state.settings.theme==='alt');
+    fontButtons.forEach(b=> b.classList.toggle('active', Number(b.dataset.font)===Number(state.settings.fontScale)));
+
+    // BGM 反映
+    bgmOnBtn.classList.toggle('active', !!state.settings.bgmOn);
+    bgmOffBtn.classList.toggle('active', !state.settings.bgmOn);
+    bgmVol.value = state.settings.bgmVol;
+    Sound.bgmGain.gain.value = Number(state.settings.bgmVol);
+    if (state.settings.bgmOn) Sound.startBGM(); else Sound.stopBGM();
+
+    saveSettings(state.settings);
+  }
+
+  function togglePause(p){
+    if (p) state.paused = !state.paused;
+    if (state.paused){ pause.showModal(); } else { pause.close(); }
+  }
+
+  btnPause.addEventListener('click', ()=> togglePause(true));
+  btnClose.addEventListener('click', ()=> togglePause(true));
+  btnReset.addEventListener('click', ()=> { state.settings = { handed:'right', oneHand:false, btnSize:64, theme:'default', fontScale:1, bgmOn:true, bgmVol:0.35 }; applySettings(); showHint('設定をリセット'); });
+
+  rightHand.addEventListener('click', ()=> { state.settings.handed='right'; applySettings(); });
+  leftHand.addEventListener('click', ()=> { state.settings.handed='left'; applySettings(); });
+  oneHandOn.addEventListener('click', ()=> { state.settings.oneHand=true; applySettings(); });
+  oneHandOff.addEventListener('click', ()=> { state.settings.oneHand=false; applySettings(); });
+  btnSize.addEventListener('input', (e)=> { state.settings.btnSize = Number(e.target.value); applySettings(); });
+  themeDefault.addEventListener('click', ()=> { state.settings.theme='default'; applySettings(); });
+  themeAlt.addEventListener('click', ()=> { state.settings.theme='alt'; applySettings(); });
+  fontButtons.forEach(b=> b.addEventListener('click', ()=> { state.settings.fontScale = Number(b.dataset.font); applySettings(); }));
+
+  // BGM UI handlers
+  bgmOnBtn.addEventListener('click', async ()=> { state.settings.bgmOn = true; applySettings(); });
+  bgmOffBtn.addEventListener('click', ()=> { state.settings.bgmOn = false; applySettings(); });
+  bgmVol.addEventListener('input', (e)=> { state.settings.bgmVol = Number(e.target.value); applySettings(); });
+
+  applySettings();
+
 })();
 </script>
 </body>
