@@ -27,6 +27,8 @@
 
     --btn-size: 64px;      /* 設定で変更 */
     --font-scale: 1;       /* 設定で変更 */
+    --stage-w: 100vw;
+    --stage-h: calc(100vw / 16 * 9);
   }
   /* 色覚サポート用テーマ（デューテラン/プロタン系で赤緑依存を下げる） */
   .theme-alt {
@@ -56,8 +58,8 @@
 
   .stage {
     position: relative;
-    width: min(100vw, 100vh * 16 / 9);
-    height: calc(min(100vw, 100vh * 16 / 9) / 16 * 9);
+    width: var(--stage-w);
+    height: var(--stage-h);
     border-radius: 16px;
     background: linear-gradient(180deg, rgba(255,255,255,0.04), rgba(0,0,0,0.3));
     box-shadow: 0 20px 60px rgba(0,0,0,0.5);
@@ -321,6 +323,18 @@
   const ctx = canvas.getContext('2d');
   const W = canvas.width;   // 320
   const H = canvas.height;  // 180
+
+  function resizeStage(){
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+    const width = Math.min(vw, vh * 16 / 9);
+    const height = width / 16 * 9;
+    document.documentElement.style.setProperty('--stage-w', `${width}px`);
+    document.documentElement.style.setProperty('--stage-h', `${height}px`);
+  }
+  window.addEventListener('resize', resizeStage);
+  window.addEventListener('orientationchange', resizeStage);
+  resizeStage();
 
   // ------------------------------
   // サウンド（WebAudio）
