@@ -123,6 +123,11 @@
   /* Gamepad接続時は仮想UIを半透明化（自動縮退） */
   .gamepad .virtual { opacity: .25; }
 
+  @media (orientation: landscape) and (pointer: coarse) {
+    .stick { transform: translateX(-3cm); }
+    .buttons { transform: translateX(3cm); }
+  }
+
   /* ===== ダイアログ（<dialog>） ===== */
   dialog { border: none; padding: 0; background: transparent; }
   .sheet { width: min(92vw, 480px); background: rgba(18,20,28,0.9); backdrop-filter: blur(8px); border: 1px solid var(--outline); color: var(--text); border-radius: 16px; overflow: hidden; }
